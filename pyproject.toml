@@ -4,23 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alval"
-version = "0.1.0"
+version = "0.2.0"
 description = "Active learning for label-efficient validation of satellite land cover maps"
 authors = [{ name = "Antonin Gauthé" }]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy",
-    "pandas",
-    "pyarrow",
-    "scipy",
-    "scikit-learn",
-    "statsmodels",
-    "matplotlib",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=14",
+    "scipy>=1.11",
+    "scikit-learn>=1.4",
+    "statsmodels>=0.14",
+    "matplotlib>=3.8",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "jupyter", "nbclient", "nbformat"]
+dev = ["pytest>=8", "jupyter", "nbclient", "nbformat", "ipykernel"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
