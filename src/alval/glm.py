@@ -2,7 +2,9 @@
 
 Fitting, likelihood-ratio tests of each term (the equivalent of R's drop1(test="Chisq")),
 backward selection, odds ratios with confidence intervals, and simulated quantile
-residuals in the spirit of the DHARMa package to check the model assumptions.
+residuals in the spirit of the DHARMa package to check the model assumptions. The points
+are spatially clustered, so two checks of independence come with it: standard errors
+robust to clustering by spatial block, and Moran's I of the residuals.
 """
 
 import numpy as np
@@ -12,13 +14,28 @@ import statsmodels.formula.api as smf
 from scipy import stats
 
 
-def fit_logit(formula, data):
-    return smf.glm(formula, data=data, family=sm.families.Binomial()).fit()
+def fit_logit(formula, data, groups=None):
+    """Binomial GLM; with `groups`, standard errors are robust to clustering."""
+    model = smf.glm(formula, data=data, family=sm.families.Binomial())
+    if groups is None:
+        return model.fit()
+    return model.fit(cov_type="cluster", cov_kwds={"groups": pd.factorize(groups)[0]})
 
 
 def _terms(model):
-    response, rhs = model.model.formula.split("~")
-    return response.strip(), [t.strip() for t in rhs.split("+") if t.strip() not in ("", "1")]
+    """Response and additive terms of the formula; a "+" inside parentheses, as in
+    C(x, Treatment(reference="a+b")) or I(x + y), does not split a term."""
+    response, rhs = model.model.formula.split("~", 1)
+    terms, depth, current = [], 0, ""
+    for char in rhs:
+        depth += (char == "(") - (char == ")")
+        if char == "+" and depth == 0:
+            terms.append(current.strip())
+            current = ""
+        else:
+            current += char
+    terms.append(current.strip())
+    return response.strip(), [t for t in terms if t not in ("", "1")]
 
 
 def drop1(model, data):
@@ -76,3 +93,21 @@ def simulated_residuals(model, n_sim=1000, seed=0):
 def uniformity_test(residuals):
     """Kolmogorov-Smirnov test against the uniform law (DHARMa's testUniformity)."""
     return stats.kstest(residuals, "uniform")
+
+
+def morans_i(values, xy, distance, n_perm=999, seed=0):
+    """Moran's I with binary weights (pairs closer than `distance`) and a one-sided
+    permutation p-value for positive autocorrelation (DHARMa's testSpatialAutocorrelation)."""
+    from scipy.spatial import cKDTree
+
+    pairs = cKDTree(xy).query_pairs(distance, output_type="ndarray")
+    z = np.asarray(values, float) - np.mean(values)
+
+    def statistic(v):
+        return len(v) / len(pairs) * np.sum(v[pairs[:, 0]] * v[pairs[:, 1]]) / np.sum(v ** 2)
+
+    observed = statistic(z)
+    rng = np.random.default_rng(seed)
+    perm = np.array([statistic(rng.permutation(z)) for _ in range(n_perm)])
+    return {"I": observed, "expected": -1 / (len(z) - 1), "p_value": (np.sum(perm >= observed) + 1) / (n_perm + 1),
+            "n_pairs": len(pairs)}

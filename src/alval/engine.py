@@ -83,6 +83,9 @@ def cold_start(name, X, sd=0.5, base_rate=0.30, sd_intercept=1.5):
     """No prior data: logistic model on standardised features, shrunk towards a base rate.
 
     Until the first observations arrive, f is constant, so the first wave is uniform.
+    `base_rate` only centres a wide prior on the intercept (sd 1.5 on the logit scale,
+    a 95% prior range of about 2% to 89%): it fixes an order of magnitude, not the
+    answer, and the estimate stays unbiased whatever the model.
     """
     X = np.asarray(X, float)
     std = X.std(0)

@@ -46,8 +46,7 @@ def generic(df, product, opinion=None):
         rows = np.arange(len(df))
         X["opinion_claimed"] = opinion[rows, claimed - 1]
         X["opinion_others"] = np.mean([opinion[rows, df[o].to_numpy() - 1] for o in others], axis=0)
-        X["opinion_max"] = opinion.max(axis=1)
-        X["opinion_entropy"] = -(opinion * np.log(np.clip(opinion, 1e-9, 1))).sum(axis=1)
+        X = _opinion_summary(X, opinion)
     return X
 
 
@@ -79,6 +78,11 @@ def with_opinion(X, df, product, opinion):
     for other in PRODUCTS:
         if other != product:
             X[f"opinion_{other}"] = opinion[rows, df[other].to_numpy() - 1]
+    return _opinion_summary(X, opinion)
+
+
+def _opinion_summary(X, opinion):
+    """How sure the classifier is, whatever the maps say."""
     X["opinion_max"] = opinion.max(axis=1)
     X["opinion_entropy"] = -(opinion * np.log(np.clip(opinion, 1e-9, 1))).sum(axis=1)
     return X
