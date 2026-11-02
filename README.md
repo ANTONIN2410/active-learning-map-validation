@@ -99,6 +99,11 @@ unchanged (clustered standard errors within 18% of the naive ones, no residual a
   allocation), and, without prior data, a two-phase design.
 * **Precise comparisons**: fixed designs are compared through their exact variance; for the engine, the
   exact conditional variance of each wave is averaged over simulated campaigns.
+* **Pre-registered**: the engine, the comparisons, the success criteria and my numerical predictions were
+  committed before the first run on the test half. All twelve criteria were met; three predictions were
+  wrong. The protocol, its timeline and its results are in
+  [`docs/preregistration.md`](docs/preregistration.md). The two-phase baseline was added afterwards and
+  is exploratory.
 
 ## Limitations
 
@@ -134,6 +139,8 @@ unchanged (clustered standard errors within 18% of the naive ones, no residual a
 
 ```
 ├── data/                  LUCAS points with the four maps and the features (+ sources)
+├── docs/
+│   └── preregistration.md protocol, criteria and predictions written before the test run
 ├── notebooks/             the three notebooks above, executed
 ├── reports/
 │   ├── figures/
