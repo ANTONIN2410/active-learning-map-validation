@@ -3,6 +3,10 @@
 For each region and product ("case"), the error models are trained on the three other
 regions and the designs are evaluated on the held-out half of the target region. The
 label saving at equal precision is 1 - MSE(design) / MSE(simple random sampling).
+
+Without prior data, the engine is also compared with a classical two-phase design: a
+uniform first phase, one fit of the same error model, then a single stratified second
+phase. It answers the question "does the loop beat a single update?".
 """
 
 import zlib
@@ -12,21 +16,33 @@ import pandas as pd
 
 from . import engine as E
 from . import features as F
-from .data import INDICATORS, PRODUCTS, REGIONS
+from .data import REGIONS
 from .sampling import exact_variance, simulate
 
 STATIC = ["srs+diff", "importance", "neyman", "neyman+diff", "class+diff"]
 N_WAVES, N_STRATA = 5, 5
+FIRST_PHASE = 0.2  # two-phase baseline: share of the sample in the uniform first phase
 
 
 def seed_for(*keys, base=20260821):
     return (base + zlib.crc32("|".join(map(str, keys)).encode())) % 2**32
 
 
-def run_campaigns(make_models, truth, n, n_rep, rng, n_waves=N_WAVES):
+def wave_sizes(n, n_waves=N_WAVES):
+    """n split into n_waves waves of (nearly) equal size."""
+    return np.diff(np.linspace(0, n, n_waves + 1).round().astype(int))
+
+
+def two_phase_sizes(n, first=FIRST_PHASE):
+    """A uniform first phase, then everything else in one stratified wave."""
+    n1 = int(round(first * n))
+    return np.array([n1, n - n1])
+
+
+def run_campaigns(make_models, truth, n, n_rep, rng, sizes=None):
     """Simulate n_rep campaigns; returns estimates, estimated variances and the
     Rao-Blackwellised variance (mean of exact wave variances) for each product."""
-    sizes = np.diff(np.linspace(0, n, n_waves + 1).round().astype(int))
+    sizes = wave_sizes(n) if sizes is None else np.asarray(sizes)
     names = list(truth)
     est = {k: np.zeros(n_rep) for k in names}
     var = {k: np.zeros(n_rep) for k in names}
@@ -87,6 +103,9 @@ def run_case(points, region, product, sizes=(100, 200, 500), n_rep=1000):
             add(scenario, "engine", rb[product].mean(), est[product], var[product])
         est, var, rb = run_campaigns(lambda: [E.cold_start(product, X_cold)], {product: y}, n, n_rep, rng)
         add("cold_start", "engine", rb[product].mean(), est[product], var[product])
+        est, var, rb = run_campaigns(lambda: [E.cold_start(product, X_cold)], {product: y}, n, n_rep, rng,
+                                     sizes=two_phase_sizes(n))
+        add("cold_start", "two_phase", rb[product].mean(), est[product], var[product])
     auc = {k: _auc(y, f) for k, f in {**priors, "indicators": f_old}.items()}
     return rows, {"region": region, "product": product, "theta": theta, **{f"auc_{k}": v for k, v in auc.items()}}
 

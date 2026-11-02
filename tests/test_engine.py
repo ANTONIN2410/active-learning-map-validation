@@ -48,3 +48,24 @@ def test_cold_start_first_wave_is_uniform(population):
     y, f, _ = population
     model = E.cold_start("p", np.column_stack([f, f ** 2]))
     assert np.ptp(model.predict()) == pytest.approx(0)
+
+
+def test_engine_intervals_cover(population):
+    """The 95% intervals of the engine must cover the true rate about 95% of the time."""
+    y, f, classes = population
+    rng = np.random.default_rng(4)
+    hits = []
+    for _ in range(400):
+        eng = E.ActiveEngine([E.from_prior("p", f, classes)])
+        for _ in range(4):
+            units = eng.propose(50, rng)
+            eng.record({"p": y[units]})
+        low, high = eng.estimate()["p"]["ci"]
+        hits.append(low <= y.mean() <= high)
+    assert 0.91 <= np.mean(hits) <= 0.98
+
+
+def test_two_phase_sizes_add_up():
+    from alval.benchmark import two_phase_sizes, wave_sizes
+    assert two_phase_sizes(200).tolist() == [40, 160]
+    assert wave_sizes(200).sum() == 200
